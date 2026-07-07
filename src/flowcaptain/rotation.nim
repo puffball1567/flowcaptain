@@ -33,7 +33,9 @@ proc runDir(rootDir, runId: string): string =
 proc writeArtifacts(dir: string; output: CaptainArtifacts) =
   createDir(dir)
   writeFile(dir / "captain-report.md", output.reportMarkdown)
+  writeFile(dir / "captain-report.html", output.reportHtml)
   writeFile(dir / "flow.mmd", output.flowMermaid)
+  writeFile(dir / "structure.mmd", output.structureMermaid)
   writeFile(dir / "comparison.mmd", output.comparisonMermaid)
   writeFile(dir / "manifest.json", output.manifestJson)
 

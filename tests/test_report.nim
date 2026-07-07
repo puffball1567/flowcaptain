@@ -30,6 +30,7 @@ suite "report":
     check output.reportMarkdown.contains("## Data quality")
     check output.reportMarkdown.contains("## Overview")
     check output.reportMarkdown.contains("## Flow diagram")
+    check output.reportMarkdown.contains("## Structure diagram")
     check output.reportMarkdown.contains("## Timeline")
     check output.reportMarkdown.contains("## Node metrics")
     check output.reportMarkdown.contains("## Edge metrics")
@@ -56,6 +57,7 @@ suite "report":
     check output.reportMarkdown.contains("FlowGarage artifacts")
     check output.reportMarkdown.contains("FlowLogbook metric density")
     check output.reportMarkdown.contains("FlowLogbook timing coverage")
+    check output.reportMarkdown.contains("captain-report.html")
     check output.reportMarkdown.contains("Recommended decision")
     check output.reportMarkdown.contains("Metric density")
     check output.reportMarkdown.contains("Acceptance condition")
@@ -68,8 +70,17 @@ suite "report":
     check output.flowMermaid.contains("flowchart LR")
     check output.flowMermaid.contains("n_transform_a")
     check not output.flowMermaid.contains("  transform-a")
+    check output.structureMermaid.contains("classDiagram")
+    check output.structureMermaid.contains("class n_transform_a")
+    check output.structureMermaid.contains("n_transform_a --> n_publish")
+    check output.reportHtml.contains("<!doctype html>")
+    check output.reportHtml.contains("Execution Flow")
+    check output.reportHtml.contains("Arrows")
+    check output.reportHtml.contains("transform-b")
     check output.comparisonMermaid.contains("subgraph A")
     let manifest = parseJson(output.manifestJson)
     check manifest["schemaVersion"].getInt() == 1
-    check manifest["files"].len == 4
-    check manifest["files"][3]["byteSize"].getInt() > 0
+    check manifest["files"].len == 6
+    check manifest["files"][1]["fileName"].getStr() == "captain-report.html"
+    check manifest["files"][3]["fileName"].getStr() == "structure.mmd"
+    check manifest["files"][5]["byteSize"].getInt() > 0

@@ -10,7 +10,9 @@ suite "report rotation":
 
     let output = CaptainArtifacts(
       reportMarkdown: "# Report",
+      reportHtml: "<!doctype html>",
       flowMermaid: "flowchart LR",
+      structureMermaid: "classDiagram",
       comparisonMermaid: "flowchart LR",
       manifestJson: "{}"
     )
@@ -23,7 +25,9 @@ suite "report rotation":
     ))
 
     check fileExists(root / "captain-report.md")
+    check fileExists(root / "captain-report.html")
     check fileExists(root / "flow.mmd")
+    check fileExists(root / "structure.mmd")
     check fileExists(root / "comparison.mmd")
     check fileExists(root / "manifest.json")
     check fileExists(written.runDir / "captain-report.md")
@@ -43,7 +47,9 @@ suite "report rotation":
 
     let output = CaptainArtifacts(
       reportMarkdown: "# Report",
+      reportHtml: "<!doctype html>",
       flowMermaid: "flowchart LR",
+      structureMermaid: "classDiagram",
       comparisonMermaid: "flowchart LR",
       manifestJson: "{}"
     )

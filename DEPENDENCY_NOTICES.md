@@ -25,6 +25,7 @@ These components are part of the FlowBrigade Toolkit family.
 | Component | Use | License | Notes |
 | --- | --- | --- | --- |
 | Nim compiler and standard library | Build toolchain and standard library APIs | MIT | FlowCaptain is written in Nim and imports Nim standard library modules. |
+| PHP runtime | Optional Laravel-compatible adapter smoke tests and examples | PHP License | The adapter itself has no Composer package dependency and is not required for Nim library use. |
 
 ## Release Checklist
 

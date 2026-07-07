@@ -1,0 +1,11 @@
+{"schemaVersion":1,"eventType":"runStarted","flowId":"billing","runId":"run-1","variantId":"A","timestampMs":1000,"durationMs":0,"status":"pending","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeStarted","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"load-users","timestampMs":1000,"durationMs":0,"status":"pending","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeFinished","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"load-users","timestampMs":1120,"durationMs":120,"status":"succeeded","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeStarted","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"calculate","timestampMs":1120,"durationMs":0,"status":"pending","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeStarted","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"render","timestampMs":1120,"durationMs":0,"status":"pending","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeFinished","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"render","timestampMs":1530,"durationMs":410,"status":"succeeded","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeFinished","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"calculate","timestampMs":1970,"durationMs":850,"status":"succeeded","retryCount":1}
+{"schemaVersion":1,"eventType":"edgeWaitObserved","flowId":"billing","runId":"run-1","variantId":"A","edgeId":"render-mail","timestampMs":1970,"durationMs":440,"status":"succeeded","retryCount":0,"message":"render finished before calculate"}
+{"schemaVersion":1,"eventType":"nodeStarted","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"send-mail","timestampMs":1970,"durationMs":0,"status":"pending","retryCount":0}
+{"schemaVersion":1,"eventType":"nodeFinished","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"send-mail","timestampMs":2060,"durationMs":90,"status":"succeeded","retryCount":0}
+{"schemaVersion":1,"eventType":"runFinished","flowId":"billing","runId":"run-1","variantId":"A","timestampMs":2060,"durationMs":1060,"status":"succeeded","retryCount":0}

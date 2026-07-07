@@ -1,0 +1,17 @@
+{
+  "name": "flowcaptain/laravel-adapter",
+  "description": "Thin Laravel-compatible adapter that emits FlowCaptain JSONL events for jobs, commands, schedulers, and batch segments.",
+  "type": "library",
+  "license": "Apache-2.0",
+  "autoload": {
+    "psr-4": {
+      "FlowCaptain\\LaravelAdapter\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.1"
+  },
+  "scripts": {
+    "test": "php tests/run.php"
+  }
+}

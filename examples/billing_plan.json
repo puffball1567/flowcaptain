@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "billing",
+  "title": "Billing Batch",
+  "variant": "A",
+  "nodes": [
+    {"id": "load-users", "title": "Load Users", "plannedMs": 120},
+    {"id": "calculate", "title": "Calculate Invoices", "plannedMs": 850},
+    {"id": "render", "title": "Render Invoices", "plannedMs": 410},
+    {"id": "send-mail", "title": "Send Mail", "plannedMs": 90}
+  ],
+  "edges": [
+    {"id": "load-calculate", "fromNode": "load-users", "toNode": "calculate", "kind": "required", "waitOn": true},
+    {"id": "load-render", "fromNode": "load-users", "toNode": "render", "kind": "required", "waitOn": true},
+    {"id": "calculate-mail", "fromNode": "calculate", "toNode": "send-mail", "kind": "required", "waitOn": true},
+    {"id": "render-mail", "fromNode": "render", "toNode": "send-mail", "kind": "required", "waitOn": true}
+  ]
+}

@@ -119,7 +119,9 @@ type
 
   CaptainArtifacts* = object
     reportMarkdown*: string
+    reportHtml*: string
     flowMermaid*: string
+    structureMermaid*: string
     comparisonMermaid*: string
     manifestJson*: string
 
@@ -136,6 +138,22 @@ type
     unit*: string
     tags*: OrderedTable[string, string]
     message*: string
+
+  CaptainAdapterEvent* = object
+    schemaVersion*: Natural
+    eventType*: string
+    flowId*: string
+    runId*: string
+    variantId*: string
+    nodeId*: string
+    edgeId*: string
+    timestampMs*: int
+    durationMs*: int
+    status*: NodeStatus
+    retryCount*: int
+    errorKind*: string
+    message*: string
+    tags*: OrderedTable[string, string]
 
 proc metadata*(pairs: openArray[(string, string)]): OrderedTable[string, string] =
   result = initOrderedTable[string, string]()

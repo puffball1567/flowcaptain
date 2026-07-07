@@ -29,6 +29,14 @@ proc kindText(kind: EdgeKind): string =
 proc cell(value: string): string =
   value.replace("|", "\\|").replace("\n", " ")
 
+proc html(value: string): string =
+  result = value
+  result = result.replace("&", "&amp;")
+  result = result.replace("<", "&lt;")
+  result = result.replace(">", "&gt;")
+  result = result.replace("\"", "&quot;")
+  result = result.replace("'", "&#39;")
+
 proc ms(value: int): string =
   $value & "ms"
 
@@ -605,6 +613,11 @@ proc markdownReport*(comparison: VariantComparison): string =
   result.add(selected.mermaid())
   result.add("```\n\n")
 
+  result.add("## Structure diagram\n\n")
+  result.add("```mermaid\n")
+  result.add(selected.structureMermaid())
+  result.add("```\n\n")
+
   result.add("## Timeline\n\n")
   result.add("| Node | Status | Start | Finish | Duration | Retries |\n")
   result.add("| --- | --- | ---: | ---: | ---: | ---: |\n")
@@ -695,18 +708,95 @@ proc markdownReport*(comparison: VariantComparison): string =
 
   result.add("## Generated artifacts\n\n")
   result.add("- `captain-report.md`\n")
+  result.add("- `captain-report.html`\n")
   result.add("- `flow.mmd`\n")
+  result.add("- `structure.mmd`\n")
   result.add("- `comparison.mmd`\n")
   result.add("- `manifest.json`\n")
 
+proc htmlReport*(comparison: VariantComparison): string =
+  let selected = if comparison.betterVariant == comparison.candidate.plan.variant:
+      comparison.candidate
+    else:
+      comparison.baseline
+  let degrees = selected.plan.degreeByNode()
+  let waits = selected.waitByEdge()
+  let runRows = selected.runByNode()
+
+  result.add("<!doctype html>\n<html lang=\"en\">\n<head>\n")
+  result.add("<meta charset=\"utf-8\">\n")
+  result.add("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
+  result.add("<title>FlowCaptain Report - " & selected.plan.id.html() & "</title>\n")
+  result.add("<style>\n")
+  result.add("body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#f6f8fa;color:#1f2328;line-height:1.45}main{max-width:1180px;margin:0 auto;padding:24px}section{background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:18px;margin:16px 0}h1,h2{margin:0 0 12px}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.kpi{border:1px solid #d8dee4;border-radius:6px;padding:10px;background:#fbfcfd}.kpi b{display:block;font-size:20px}.batches{display:flex;gap:12px;overflow:auto;padding-bottom:8px}.batch{min-width:190px;border:1px solid #d0d7de;border-radius:6px;background:#fbfcfd;padding:10px}.node{border:1px solid #8c959f;border-left:4px solid #0969da;border-radius:6px;background:#fff;margin:8px 0;padding:8px}.node.critical{border-left-color:#1a7f37}.node.failed{border-left-color:#cf222e}.node.skipped{border-left-color:#bf8700}.arrow{color:#57606a;text-align:center;font-weight:700;align-self:center}table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid #d0d7de;padding:7px;text-align:left}th{background:#f6f8fa}.muted{color:#57606a}.badge{display:inline-block;border:1px solid #d0d7de;border-radius:999px;padding:1px 7px;background:#f6f8fa;font-size:12px}</style>\n")
+  result.add("</head>\n<body>\n<main>\n")
+  result.add("<h1>FlowCaptain Report</h1>\n")
+  result.add("<p class=\"muted\">Plan <b>" & selected.plan.id.html() & "</b>, variant <b>" &
+    selected.plan.variant.html() & "</b></p>\n")
+
+  result.add("<section><h2>Summary</h2><div class=\"kpis\">")
+  result.add("<div class=\"kpi\">Status<b>" & (if selected.run.ok: "ok" else: "failed") & "</b></div>")
+  result.add("<div class=\"kpi\">Elapsed<b>" & selected.run.totalMs.ms().html() & "</b></div>")
+  result.add("<div class=\"kpi\">Critical path<b>" & selected.analysis.criticalPathMs.ms().html() & "</b></div>")
+  result.add("<div class=\"kpi\">Total work<b>" & selected.totalWorkMs().ms().html() & "</b></div>")
+  result.add("<div class=\"kpi\">Retries<b>" & $selected.analysis.retryCount & "</b></div>")
+  result.add("<div class=\"kpi\">Selected variant<b>" & selected.plan.variant.html() & "</b></div>")
+  result.add("</div><p>" & comparison.summary.html() & "</p></section>\n")
+
+  result.add("<section><h2>Execution Flow</h2><div class=\"batches\">")
+  for index, batch in selected.dryRun.batches:
+    if index > 0:
+      result.add("<div class=\"arrow\">&rarr;</div>")
+    result.add("<div class=\"batch\"><b>Batch " & $(index + 1) & "</b>")
+    for nodeId in batch:
+      let run = runRows.getOrDefault(nodeId)
+      let cls =
+        if run.status == nsFailed: "node failed"
+        elif run.status == nsSkipped: "node skipped"
+        elif selected.isCritical(nodeId): "node critical"
+        else: "node"
+      result.add("<div class=\"" & cls & "\"><b>" & nodeId.html() & "</b><br>")
+      result.add("<span class=\"muted\">" & selected.plan.nodeById().getOrDefault(nodeId).title.html() & "</span><br>")
+      result.add("<span class=\"badge\">" & $run.status & "</span> ")
+      result.add("<span class=\"badge\">" & run.durationMs.ms().html() & "</span></div>")
+    result.add("</div>")
+  result.add("</div></section>\n")
+
+  result.add("<section><h2>Nodes</h2><table><thead><tr><th>Node</th><th>Title</th><th>Status</th><th>Duration</th><th>Retries</th><th>Fan-in</th><th>Fan-out</th><th>Critical</th></tr></thead><tbody>")
+  for item in selected.plan.nodes:
+    let run = runRows.getOrDefault(item.id)
+    let degree = degrees.getOrDefault(item.id)
+    result.add("<tr><td><code>" & item.id.html() & "</code></td><td>" & item.title.html() &
+      "</td><td>" & ($run.status).html() & "</td><td>" & run.durationMs.ms().html() &
+      "</td><td>" & $run.retries & "</td><td>" & $degree.fanIn & "</td><td>" &
+      $degree.fanOut & "</td><td>" & (if selected.isCritical(item.id): "yes" else: "no") &
+      "</td></tr>")
+  result.add("</tbody></table></section>\n")
+
+  result.add("<section><h2>Arrows</h2><table><thead><tr><th>Arrow</th><th>From</th><th>To</th><th>Kind</th><th>Wait on</th><th>Observed wait</th></tr></thead><tbody>")
+  for edge in selected.plan.edges:
+    let wait = waits.getOrDefault(edge.id)
+    result.add("<tr><td><code>" & edge.id.html() & "</code></td><td><code>" &
+      edge.fromNode.html() & "</code></td><td><code>" & edge.toNode.html() &
+      "</code></td><td>" & edge.kind.kindText().html() & "</td><td>" &
+      edge.waitOn.boolText() & "</td><td>" & wait.totalWaitMs.ms().html() & "</td></tr>")
+  result.add("</tbody></table></section>\n")
+
+  result.add("<section><h2>Recommendation</h2><p>" &
+    selected.analysis.recommendation.html() & "</p></section>\n")
+  result.add("</main>\n</body>\n</html>\n")
+
 proc artifacts*(comparison: VariantComparison): CaptainArtifacts =
   let report = markdownReport(comparison)
+  let reportHtml = htmlReport(comparison)
   let selected = if comparison.betterVariant == comparison.candidate.plan.variant:
       comparison.candidate
     else:
       comparison.baseline
   let flow = selected.mermaid()
+  let structure = selected.structureMermaid()
   let compareGraph = comparison.comparisonMermaid()
-  let manifest = manifestJson(report, flow, compareGraph)
-  CaptainArtifacts(reportMarkdown: report, flowMermaid: flow,
+  let manifest = manifestJson(report, reportHtml, flow, structure, compareGraph)
+  CaptainArtifacts(reportMarkdown: report, reportHtml: reportHtml, flowMermaid: flow,
+                   structureMermaid: structure,
                    comparisonMermaid: compareGraph, manifestJson: manifest)

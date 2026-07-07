@@ -35,7 +35,9 @@ let written = output.writeRotatedReports(defaultReportRotationOptions(
 
 echo "Generated:"
 echo "- reports/captain-report.md"
+echo "- reports/captain-report.html"
 echo "- reports/flow.mmd"
+echo "- reports/structure.mmd"
 echo "- reports/comparison.mmd"
 echo "- reports/manifest.json"
 echo "- " & written.runDir / "captain-report.md"

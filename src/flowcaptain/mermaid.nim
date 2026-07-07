@@ -21,6 +21,19 @@ proc mermaidId(value: string): string =
 proc mermaidLabel(value: string): string =
   value.replace("\"", "&quot;")
 
+proc classValue(value: string): string =
+  result = value
+  result = result.replace("\"", "'")
+  result = result.replace("{", "(")
+  result = result.replace("}", ")")
+  result = result.replace("<", "(")
+  result = result.replace(">", ")")
+  result = result.replace("\n", " ")
+
+proc statusByNodeRun(outcome: CaptainOutcome): Table[string, NodeRun] =
+  for item in outcome.run.timeline:
+    result[item.nodeId] = item
+
 proc mermaid*(outcome: CaptainOutcome): string =
   let statuses = outcome.statusByNode()
   let critical = outcome.criticalSet()
@@ -43,6 +56,53 @@ proc mermaid*(outcome: CaptainOutcome): string =
   result.add("  classDef slow fill:#ffe0b2,stroke:#ef6c00;\n")
   result.add("  classDef failed fill:#ffcdd2,stroke:#c62828;\n")
   result.add("  classDef critical fill:#dcedc8,stroke:#558b2f;\n")
+
+proc structureMermaid*(outcome: CaptainOutcome): string =
+  let runs = outcome.statusByNodeRun()
+  let critical = outcome.criticalSet()
+  result.add("classDiagram\n")
+  result.add("  class CaptainPlan {\n")
+  result.add("    +id " & outcome.plan.id.classValue() & "\n")
+  result.add("    +title " & outcome.plan.title.classValue() & "\n")
+  result.add("    +variant " & outcome.plan.variant.classValue() & "\n")
+  result.add("    +nodes " & $outcome.plan.nodes.len & "\n")
+  result.add("    +edges " & $outcome.plan.edges.len & "\n")
+  result.add("  }\n")
+  result.add("  class CaptainRun {\n")
+  result.add("    +ok " & $outcome.run.ok & "\n")
+  result.add("    +totalMs " & $outcome.run.totalMs & "\n")
+  result.add("    +criticalPathMs " & $outcome.analysis.criticalPathMs & "\n")
+  result.add("    +retryCount " & $outcome.analysis.retryCount & "\n")
+  result.add("  }\n")
+  result.add("  CaptainPlan --> CaptainRun : produces\n")
+
+  for item in outcome.plan.nodes:
+    let classId = item.id.mermaidId()
+    let run = runs.getOrDefault(item.id, NodeRun(
+      nodeId: item.id,
+      title: item.title,
+      status: nsPending,
+      durationMs: item.plannedMs
+    ))
+    result.add("  class " & classId & " {\n")
+    result.add("    +id " & item.id.classValue() & "\n")
+    result.add("    +title " & item.title.classValue() & "\n")
+    result.add("    +plannedMs " & $item.plannedMs & "\n")
+    result.add("    +status " & $run.status & "\n")
+    result.add("    +durationMs " & $run.durationMs & "\n")
+    result.add("    +retries " & $run.retries & "\n")
+    if item.id in critical:
+      result.add("    +criticalPath true\n")
+    result.add("  }\n")
+    result.add("  CaptainPlan --> " & classId & " : contains\n")
+
+  for edge in outcome.plan.edges:
+    let relation =
+      if edge.kind == ekOptional: "optional"
+      elif edge.waitOn: "required waitOn"
+      else: "required"
+    result.add("  " & edge.fromNode.mermaidId() & " --> " &
+      edge.toNode.mermaidId() & " : " & relation & "\n")
 
 proc comparisonMermaid*(comparison: VariantComparison): string =
   result.add("flowchart LR\n")
