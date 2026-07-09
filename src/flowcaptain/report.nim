@@ -4,6 +4,7 @@ import ./types
 import ./mermaid
 import ./jsonio
 import ./toolkit
+import ./health
 
 proc statusText(status: NodeStatus): string =
   case status
@@ -213,6 +214,26 @@ proc addKpiDashboard(result: var string; comparison: VariantComparison;
     $(comparison.candidate.analysis.retryCount -
       comparison.baseline.analysis.retryCount) &
     " | Wasted work and instability indicator. |\n\n")
+
+proc addFlowHealth(result: var string; selected: CaptainOutcome) =
+  let scored = selected.health()
+  result.add("## Flow health\n\n")
+  result.add("| Metric | Value |\n")
+  result.add("| --- | ---: |\n")
+  result.add("| Score | `" & scored.score.formatFloat(ffDecimal, 1) & "` |\n")
+  result.add("| Grade | `" & scored.grade & "` |\n")
+  result.add("| Success rate | `" & (scored.successRate * 100.0).pct() & "` |\n")
+  result.add("| Failure rate | `" & (scored.failureRate * 100.0).pct() & "` |\n")
+  result.add("| Retry rate | `" & scored.retryRate.formatFloat(ffDecimal, 2) & "` |\n")
+  result.add("| Wait share | `" & (scored.waitShare * 100.0).pct() & "` |\n")
+  result.add("| Critical-path share | `" &
+    (scored.criticalPathShare * 100.0).pct() & "` |\n")
+  result.add("| Concurrency factor | `" &
+    scored.concurrencyFactor.formatFloat(ffDecimal, 2) & "x` |\n\n")
+  result.add("Health reasons:\n")
+  for item in scored.reasons:
+    result.add("- " & item & "\n")
+  result.add("\n")
 
 proc addDecisionRecord(result: var string; comparison: VariantComparison;
     selected: CaptainOutcome) =
@@ -594,6 +615,7 @@ proc markdownReport*(comparison: VariantComparison): string =
   result.add("# FlowCaptain Report\n\n")
   result.addExecutiveSummary(comparison, selected)
   result.addKpiDashboard(comparison, selected)
+  result.addFlowHealth(selected)
   result.addDecisionRecord(comparison, selected)
   result.addVariantScorecard(comparison)
   result.addDataQuality(comparison, selected)
@@ -722,6 +744,7 @@ proc htmlReport*(comparison: VariantComparison): string =
   let degrees = selected.plan.degreeByNode()
   let waits = selected.waitByEdge()
   let runRows = selected.runByNode()
+  let scored = selected.health()
 
   result.add("<!doctype html>\n<html lang=\"en\">\n<head>\n")
   result.add("<meta charset=\"utf-8\">\n")
@@ -739,6 +762,9 @@ proc htmlReport*(comparison: VariantComparison): string =
   result.add("<div class=\"kpi\">Elapsed<b>" & selected.run.totalMs.ms().html() & "</b></div>")
   result.add("<div class=\"kpi\">Critical path<b>" & selected.analysis.criticalPathMs.ms().html() & "</b></div>")
   result.add("<div class=\"kpi\">Total work<b>" & selected.totalWorkMs().ms().html() & "</b></div>")
+  result.add("<div class=\"kpi\">Health<b>" &
+    scored.score.formatFloat(ffDecimal, 1).html() & " / " &
+    scored.grade.html() & "</b></div>")
   result.add("<div class=\"kpi\">Retries<b>" & $selected.analysis.retryCount & "</b></div>")
   result.add("<div class=\"kpi\">Selected variant<b>" & selected.plan.variant.html() & "</b></div>")
   result.add("</div><p>" & comparison.summary.html() & "</p></section>\n")

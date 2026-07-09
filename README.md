@@ -30,6 +30,9 @@ The first target scenario is `daily-report`:
 - import framework adapter JSONL events
 - provide a thin Laravel-compatible adapter for command, queue, scheduler, and
   batch instrumentation
+- validate shared FlowBrigade Toolkit ids
+- compare plan structure changes before and after optimization
+- score flow health for reliability and optimization readiness
 
 ## Install
 
@@ -73,6 +76,21 @@ let outcome = plan.executeWithToolkit().complete()
 `executeWithToolkit` uses FlowDependency for dependency-ready batches and
 FlowWorkRunner for execution. For production work, pass a
 `WorkExecutorRegistry` with executors for each node.
+
+## Integration Primitives
+
+FlowCaptain exposes small primitives that are useful across the toolkit:
+
+- `checkSharedId` and `normalizeSharedId` keep `flowId`, `runId`, `nodeId`,
+  `edgeId`, `artifactId`, and `policyId` compatible across repositories.
+- `diffPlans` reports node and edge changes between two flow definitions,
+  including breaking removals and wait-on changes.
+- `health` converts run, survey, retry, wait, and critical-path signals into a
+  single score plus reasons.
+
+These are deliberately independent from any specific web framework or workflow
+engine. They are meant to make FlowCaptain useful for both executed flows and
+externally observed business flows.
 
 ## Adapter Events
 

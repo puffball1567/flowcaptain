@@ -16,6 +16,18 @@ proc parseEdgeKind(value: string): EdgeKind =
   else:
     raise newException(ValueError, "invalid edge kind: " & value)
 
+proc planChangeKindText(kind: PlanChangeKind): string =
+  case kind
+  of pckNodeAdded: "nodeAdded"
+  of pckNodeRemoved: "nodeRemoved"
+  of pckNodeTitleChanged: "nodeTitleChanged"
+  of pckNodePlannedMsChanged: "nodePlannedMsChanged"
+  of pckEdgeAdded: "edgeAdded"
+  of pckEdgeRemoved: "edgeRemoved"
+  of pckEdgeEndpointChanged: "edgeEndpointChanged"
+  of pckEdgeKindChanged: "edgeKindChanged"
+  of pckEdgeWaitChanged: "edgeWaitChanged"
+
 proc toJson*(plan: CaptainPlan): JsonNode =
   result = %*{
     "schemaVersion": 1,
@@ -73,6 +85,50 @@ proc planFromJson*(value: JsonNode): CaptainPlan =
         kind = item{"kind"}.getStr("required").parseEdgeKind(),
         waitOn = item{"waitOn"}.getBool(true)
       ))
+
+proc toJson*(diff: PlanDiff): JsonNode =
+  result = %*{
+    "schemaVersion": 1,
+    "baselineId": diff.baselineId,
+    "candidateId": diff.candidateId,
+    "summary": diff.summary,
+    "changes": [],
+    "breakingChanges": []
+  }
+  for item in diff.changes:
+    result["changes"].add(%*{
+      "kind": item.kind.planChangeKindText(),
+      "targetId": item.targetId,
+      "before": item.before,
+      "after": item.after,
+      "breaking": item.breaking,
+      "message": item.message
+    })
+  for item in diff.breakingChanges:
+    result["breakingChanges"].add(%*{
+      "kind": item.kind.planChangeKindText(),
+      "targetId": item.targetId,
+      "before": item.before,
+      "after": item.after,
+      "breaking": item.breaking,
+      "message": item.message
+    })
+
+proc toJson*(health: FlowHealth): JsonNode =
+  result = %*{
+    "schemaVersion": 1,
+    "score": health.score,
+    "grade": health.grade,
+    "successRate": health.successRate,
+    "failureRate": health.failureRate,
+    "retryRate": health.retryRate,
+    "waitShare": health.waitShare,
+    "criticalPathShare": health.criticalPathShare,
+    "concurrencyFactor": health.concurrencyFactor,
+    "reasons": []
+  }
+  for item in health.reasons:
+    result["reasons"].add(%item)
 
 proc toJson*(artifacts: CaptainArtifacts): JsonNode =
   %*{

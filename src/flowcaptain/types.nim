@@ -7,6 +7,14 @@ type
   EdgeKind* = enum
     ekRequired, ekOptional
 
+  SharedIdKind* = enum
+    sikFlow, sikRun, sikVariant, sikNode, sikEdge, sikArtifact, sikPolicy
+
+  SharedIdCheck* = object
+    ok*: bool
+    normalized*: string
+    error*: string
+
   CaptainNode* = object
     id*: string
     title*: string
@@ -116,6 +124,37 @@ type
     surveySummary*: string
     improvements*: seq[string]
     regressions*: seq[string]
+
+  PlanChangeKind* = enum
+    pckNodeAdded, pckNodeRemoved, pckNodeTitleChanged, pckNodePlannedMsChanged,
+    pckEdgeAdded, pckEdgeRemoved, pckEdgeEndpointChanged, pckEdgeKindChanged,
+    pckEdgeWaitChanged
+
+  PlanChange* = object
+    kind*: PlanChangeKind
+    targetId*: string
+    before*: string
+    after*: string
+    breaking*: bool
+    message*: string
+
+  PlanDiff* = object
+    baselineId*: string
+    candidateId*: string
+    changes*: seq[PlanChange]
+    breakingChanges*: seq[PlanChange]
+    summary*: string
+
+  FlowHealth* = object
+    score*: float
+    grade*: string
+    successRate*: float
+    failureRate*: float
+    retryRate*: float
+    waitShare*: float
+    criticalPathShare*: float
+    concurrencyFactor*: float
+    reasons*: seq[string]
 
   CaptainArtifacts* = object
     reportMarkdown*: string
