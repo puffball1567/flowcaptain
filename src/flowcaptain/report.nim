@@ -235,6 +235,30 @@ proc addFlowHealth(result: var string; selected: CaptainOutcome) =
     result.add("- " & item & "\n")
   result.add("\n")
 
+
+proc addOperationalSummary(result: var string; selected: CaptainOutcome) =
+  let ops = selected.survey.operationalSummary
+  result.add("## Operational summary\n\n")
+  result.add("| Metric | Value | Meaning |\n")
+  result.add("| --- | ---: | --- |\n")
+  result.add("| Executions | " & $ops.executionCount & " | Node completions observed by FlowSurveyor. |\n")
+  result.add("| Succeeded / Failed / Skipped | " & $ops.succeededCount & " / " &
+    $ops.failedCount & " / " & $ops.skippedCount & " | Reliability and exception handling signal. |\n")
+  result.add("| Average cycle time | " & ops.averageCycleTimeMs.int.ms() &
+    " | Mean duration per completed node event. |\n")
+  result.add("| Total wait / blocked | " & ops.totalWaitMs.ms() & " / " &
+    ops.totalBlockedMs.ms() & " | Handoff delay and blocked dependency time. |\n")
+  result.add("| Throughput | " & ops.throughputPerHour.formatFloat(ffDecimal, 1) &
+    "/hour | Completed node events per observed hour. |\n")
+  result.add("| Failure rate | " & ops.failureRate.pct() &
+    " | Failed node events divided by observed executions. |\n")
+  result.add("| Defect rate | " & ops.defectRate.pct() &
+    " | Defect units divided by accepted plus defect units. |\n")
+  result.add("| Retry rate | " & ops.retryRate.pct() &
+    " | Retries divided by observed executions. |\n")
+  result.add("| First-pass yield | " & ops.firstPassYield.pct() &
+    " | Accepted units divided by accepted plus defect units. |\n\n")
+
 proc addDecisionRecord(result: var string; comparison: VariantComparison;
     selected: CaptainOutcome) =
   let baseline = comparison.baseline
@@ -616,6 +640,7 @@ proc markdownReport*(comparison: VariantComparison): string =
   result.addExecutiveSummary(comparison, selected)
   result.addKpiDashboard(comparison, selected)
   result.addFlowHealth(selected)
+  result.addOperationalSummary(selected)
   result.addDecisionRecord(comparison, selected)
   result.addVariantScorecard(comparison)
   result.addDataQuality(comparison, selected)
@@ -766,6 +791,9 @@ proc htmlReport*(comparison: VariantComparison): string =
     scored.score.formatFloat(ffDecimal, 1).html() & " / " &
     scored.grade.html() & "</b></div>")
   result.add("<div class=\"kpi\">Retries<b>" & $selected.analysis.retryCount & "</b></div>")
+  result.add("<div class=\"kpi\">Throughput<b>" & selected.survey.operationalSummary.throughputPerHour.formatFloat(ffDecimal, 1).html() & "/h</b></div>")
+  result.add("<div class=\"kpi\">Failure rate<b>" & selected.survey.operationalSummary.failureRate.pct().html() & "</b></div>")
+  result.add("<div class=\"kpi\">Defect rate<b>" & selected.survey.operationalSummary.defectRate.pct().html() & "</b></div>")
   result.add("<div class=\"kpi\">Selected variant<b>" & selected.plan.variant.html() & "</b></div>")
   result.add("</div><p>" & comparison.summary.html() & "</p></section>\n")
 

@@ -92,6 +92,29 @@ proc toSurveyEvents*(outcome: cap.CaptainOutcome): seq[sv.SurveyEvent] =
         durationMillis = Natural(target.durationMs + waitMs)
       ))
 
+
+proc toCaptainOperationalSummary(item: sv.OperationalSummary): cap.CaptainOperationalSummary =
+  cap.CaptainOperationalSummary(
+    executionCount: int(item.executionCount),
+    succeededCount: int(item.succeededCount),
+    failedCount: int(item.failedCount),
+    skippedCount: int(item.skippedCount),
+    retryCount: int(item.retryCount),
+    workUnits: item.workUnits,
+    acceptedUnits: item.acceptedUnits,
+    defectUnits: item.defectUnits,
+    totalCycleTimeMs: int(item.totalCycleTimeMillis),
+    averageCycleTimeMs: item.averageCycleTimeMillis,
+    totalWaitMs: int(item.totalWaitTimeMillis),
+    totalBlockedMs: int(item.totalBlockedTimeMillis),
+    totalObservedMs: int(item.totalObservedTimeMillis),
+    throughputPerHour: item.throughputPerHour,
+    failureRate: item.failureRate,
+    defectRate: item.defectRate,
+    retryRate: item.retryRate,
+    firstPassYield: item.firstPassYield
+  )
+
 proc toCaptainInsights(report: sv.SurveyReport): cap.CaptainSurveyInsights =
   for item in report.waitInsights:
     result.waitInsights.add(cap.CaptainWaitInsight(
@@ -124,6 +147,7 @@ proc toCaptainInsights(report: sv.SurveyReport): cap.CaptainSurveyInsights =
       score: item.score,
       reason: item.reason
     ))
+  result.operationalSummary = report.operationalSummary.toCaptainOperationalSummary()
   for item in report.recommendations:
     if item.reason notin result.recommendations:
       result.recommendations.add(item.reason)

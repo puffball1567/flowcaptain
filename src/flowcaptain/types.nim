@@ -102,10 +102,32 @@ type
     score*: float
     reason*: string
 
+
+  CaptainOperationalSummary* = object
+    executionCount*: int
+    succeededCount*: int
+    failedCount*: int
+    skippedCount*: int
+    retryCount*: int
+    workUnits*: float
+    acceptedUnits*: float
+    defectUnits*: float
+    totalCycleTimeMs*: int
+    averageCycleTimeMs*: float
+    totalWaitMs*: int
+    totalBlockedMs*: int
+    totalObservedMs*: int
+    throughputPerHour*: float
+    failureRate*: float
+    defectRate*: float
+    retryRate*: float
+    firstPassYield*: float
+
   CaptainSurveyInsights* = object
     waitInsights*: seq[CaptainWaitInsight]
     parallelismOpportunities*: seq[CaptainParallelismOpportunity]
     failureImpacts*: seq[CaptainFailureImpact]
+    operationalSummary*: CaptainOperationalSummary
     recommendations*: seq[string]
 
   CaptainOutcome* = object
