@@ -1,0 +1,331 @@
+import std/[strutils, tables]
+
+import flowdependency as fd
+import flowgarage as fg
+import flowlogbook as fl
+import flowworkrunner as fw
+
+import ./types as cap
+import ./validation as capv
+
+proc depWaitPolicy(edge: cap.CaptainEdge): fd.WaitPolicy =
+  if edge.waitOn and edge.kind == cap.ekRequired:
+    fd.wpRequired
+  else:
+    fd.wpOptional
+
+proc toDependencyGraph*(plan: cap.CaptainPlan): fd.FlowGraph =
+  result = fd.initFlowGraph(plan.id, variantId = plan.variant)
+  for item in plan.nodes:
+    result.nodes.add(fd.flowNode(item.id, item.title,
+      kind = fd.nkTask,
+      variantId = plan.variant))
+  for item in plan.edges:
+    result.edges.add(fd.flowEdge(item.id, item.fromNode, item.toNode,
+      waitPolicy = item.depWaitPolicy(),
+      required = item.kind == cap.ekRequired,
+      durationMillis = Natural(0),
+      variantId = plan.variant))
+
+proc toWorkGraph*(plan: cap.CaptainPlan): fw.WorkGraph =
+  result = fw.initWorkGraph(plan.id, variantId = plan.variant)
+  for item in plan.nodes:
+    result.nodes.add(fw.workNode(item.id, item.title,
+      variantId = plan.variant))
+  for item in plan.edges:
+    result.edges.add(fw.workEdge(item.id, item.fromNode, item.toNode,
+      waitOn = item.waitOn))
+
+proc workStatus(status: cap.NodeStatus): fw.WorkStatus =
+  case status
+  of cap.nsPending: fw.wsPending
+  of cap.nsSucceeded: fw.wsSucceeded
+  of cap.nsFailed: fw.wsFailed
+  of cap.nsSkipped: fw.wsSkipped
+
+proc captainStatus(status: fw.WorkStatus): cap.NodeStatus =
+  case status
+  of fw.wsPending, fw.wsRunning: cap.nsPending
+  of fw.wsSucceeded: cap.nsSucceeded
+  of fw.wsFailed: cap.nsFailed
+  of fw.wsSkipped: cap.nsSkipped
+
+proc nodeTitle(plan: cap.CaptainPlan; nodeId: string): string =
+  for item in plan.nodes:
+    if item.id == nodeId:
+      return item.title
+  nodeId
+
+proc metricInt(metrics: seq[fw.KeyValue]; key: string): int =
+  for item in metrics:
+    if item.key == key:
+      try:
+        return parseInt(item.value)
+      except ValueError:
+        return 0
+  0
+
+proc dependencyDryRun*(plan: cap.CaptainPlan): cap.DryRun =
+  let planValidation = capv.validate(plan)
+  if not planValidation.ok:
+    return cap.DryRun(ok: false, errors: planValidation.errors)
+
+  let graph = plan.toDependencyGraph()
+  let graphValidation = fd.validate(graph)
+  if not graphValidation.ok:
+    return cap.DryRun(ok: false, errors: graphValidation.errors)
+
+  var statuses = initTable[string, fd.NodeStatus]()
+  for item in graph.nodes:
+    statuses[item.id] = fd.nsPending
+
+  var completed = 0
+  while completed < graph.nodes.len:
+    let ready = graph.readyNodes(statuses)
+    if ready.len == 0:
+      return cap.DryRun(
+        ok: false,
+        batches: result.batches,
+        errors: @[
+          "dependency graph has no ready nodes; check for cycles or unsatisfied waits"
+        ]
+      )
+
+    var batch: seq[string] = @[]
+    for item in ready:
+      batch.add(item)
+      statuses[item] = fd.nsSucceeded
+      inc completed
+    result.batches.add(batch)
+
+  result.ok = true
+
+proc defaultToolkitWorkOptions*(plan: cap.CaptainPlan): fw.WorkRunOptions =
+  fw.defaultWorkRunOptions(
+    runId = plan.id & ":" & plan.variant & ":toolkit",
+    failFast = false,
+    maxBatchSize = 0
+  )
+
+proc simulatedExecutor(item: cap.CaptainNode): fw.WorkExecutor =
+  let captured = item
+  proc(node: fw.WorkNode): fw.WorkTaskResult =
+    var metrics: seq[fw.KeyValue] = @[]
+    if captured.retries > 0:
+      metrics.add(fw.kv("retries", $captured.retries))
+    let duration = Natural(max(0, captured.plannedMs))
+    if captured.fail:
+      fw.failed(node.id, durationMillis = duration,
+        message = "simulated failure", metrics = metrics)
+    else:
+      fw.succeeded(node.id, durationMillis = duration,
+        message = "completed", metrics = metrics)
+
+proc simulatedExecutors*(plan: cap.CaptainPlan): fw.WorkExecutorRegistry =
+  result = fw.initWorkExecutorRegistry()
+  for item in plan.nodes:
+    result.register(item.id, simulatedExecutor(item))
+
+proc toWorkRunInput*(plan: cap.CaptainPlan; executors: fw.WorkExecutorRegistry;
+    options: fw.WorkRunOptions): fw.WorkRunInput =
+  fw.initWorkRunInput(plan.toWorkGraph(), executors, options)
+
+proc toWorkRunInput*(plan: cap.CaptainPlan; executors: fw.WorkExecutorRegistry):
+    fw.WorkRunInput =
+  plan.toWorkRunInput(executors, plan.defaultToolkitWorkOptions())
+
+proc fromWorkRunReport*(plan: cap.CaptainPlan; dryRun: cap.DryRun;
+    report: fw.WorkRunReport): cap.CaptainRun =
+  var results = initTable[string, fw.WorkTaskResult]()
+  for item in report.results:
+    results[item.nodeId] = item
+
+  var clock = 0
+  var errors = report.errors
+  for batch in report.batches:
+    var batchMax = 0
+    for nodeId in batch.nodeIds:
+      if not results.hasKey(nodeId):
+        errors.add("work result missing for node: " & nodeId)
+        continue
+      let item = results[nodeId]
+      let duration = int(item.durationMillis)
+      result.timeline.add(cap.NodeRun(
+        nodeId: nodeId,
+        title: plan.nodeTitle(nodeId),
+        status: item.status.captainStatus(),
+        startedMs: clock,
+        finishedMs: clock + duration,
+        durationMs: duration,
+        retries: item.metrics.metricInt("retries"),
+        message: item.message
+      ))
+      if duration > batchMax:
+        batchMax = duration
+    clock = clock + batchMax
+
+  result.planId = plan.id
+  result.variant = plan.variant
+  result.totalMs = clock
+  result.errors = errors
+  result.ok = report.status == fw.wsSucceeded and errors.len == 0
+
+proc executeWithToolkit*(plan: cap.CaptainPlan; executors: fw.WorkExecutorRegistry;
+    options: fw.WorkRunOptions): cap.CaptainOutcome =
+  let dry = plan.dependencyDryRun()
+  if not dry.ok:
+    return cap.CaptainOutcome(
+      plan: plan,
+      dryRun: dry,
+      run: cap.CaptainRun(
+        planId: plan.id,
+        variant: plan.variant,
+        ok: false,
+        errors: dry.errors
+      )
+    )
+
+  let work = fw.run(plan.toWorkRunInput(executors, options))
+  cap.CaptainOutcome(
+    plan: plan,
+    dryRun: dry,
+    run: plan.fromWorkRunReport(dry, work.report)
+  )
+
+proc executeWithToolkit*(plan: cap.CaptainPlan; executors: fw.WorkExecutorRegistry):
+    cap.CaptainOutcome =
+  plan.executeWithToolkit(executors, plan.defaultToolkitWorkOptions())
+
+proc executeWithToolkit*(plan: cap.CaptainPlan): cap.CaptainOutcome =
+  plan.executeWithToolkit(plan.simulatedExecutors())
+
+proc toWorkRunReport*(outcome: cap.CaptainOutcome): fw.WorkRunReport =
+  result = fw.WorkRunReport(
+    schemaVersion: fw.ReportSchemaVersion,
+    flowId: outcome.plan.id,
+    runId: outcome.run.planId & ":" & outcome.plan.variant,
+    variantId: outcome.plan.variant,
+    status: if outcome.run.ok: fw.wsSucceeded else: fw.wsFailed,
+    errors: outcome.run.errors
+  )
+  for index, batch in outcome.dryRun.batches:
+    result.batches.add(fw.ReadyBatch(index: Natural(index), nodeIds: batch))
+  for item in outcome.run.timeline:
+    var metrics: seq[fw.KeyValue] = @[]
+    if item.retries > 0:
+      metrics.add(fw.kv("retries", $item.retries))
+    result.results.add(fw.WorkTaskResult(
+      nodeId: item.nodeId,
+      status: item.status.workStatus(),
+      durationMillis: Natural(item.durationMs),
+      message: item.message,
+      metrics: metrics
+    ))
+
+proc logStatus(status: cap.NodeStatus): fl.RunStatus =
+  case status
+  of cap.nsPending: fl.rsPending
+  of cap.nsSucceeded: fl.rsCompleted
+  of cap.nsFailed: fl.rsFailed
+  of cap.nsSkipped: fl.rsSkipped
+
+proc toLogbookEvents*(outcome: cap.CaptainOutcome): seq[fl.FlowEvent] =
+  for item in outcome.run.timeline:
+    var metrics: seq[fl.KeyValue] = @[]
+    if item.retries > 0:
+      metrics.add(fl.kv("retries", $item.retries))
+    result.add(fl.nodeEvent(
+      "node:" & outcome.plan.variant & ":" & item.nodeId,
+      "flowcaptain",
+      outcome.plan.id,
+      outcome.run.planId & ":" & outcome.plan.variant,
+      item.nodeId,
+      fl.fekNodeFinished,
+      variantId = outcome.plan.variant,
+      status = item.status.logStatus(),
+      durationMillis = Natural(item.durationMs),
+      metrics = metrics,
+      message = item.message
+    ))
+
+proc toGarageBundle*(comparison: cap.VariantComparison;
+    output: cap.CaptainArtifacts): fg.GarageBundle =
+  result = fg.initGarageBundle(comparison.candidate.plan.id,
+    "FlowCaptain Report",
+    summary = comparison.summary)
+  result.sections.add(fg.section("summary", "Summary", comparison.summary))
+  if comparison.surveySummary.len > 0:
+    result.sections.add(fg.section("survey", "FlowSurveyor Summary",
+      comparison.surveySummary))
+  result.artifacts.add(fg.artifact("captain-report", "Captain Report",
+    kind = fg.akReport,
+    mediaType = "text/markdown",
+    content = output.reportMarkdown))
+  result.artifacts.add(fg.artifact("captain-report-html", "Captain HTML Report",
+    kind = fg.akReport,
+    mediaType = "text/html",
+    content = output.reportHtml))
+  result.artifacts.add(fg.artifact("flow-mermaid", "Flow Diagram",
+    kind = fg.akReport,
+    mediaType = "text/vnd.mermaid",
+    content = output.flowMermaid))
+  result.artifacts.add(fg.artifact("structure-mermaid", "Structure Diagram",
+    kind = fg.akReport,
+    mediaType = "text/vnd.mermaid",
+    content = output.structureMermaid))
+  result.artifacts.add(fg.artifact("comparison-mermaid", "Variant Comparison",
+    kind = fg.akReport,
+    mediaType = "text/vnd.mermaid",
+    content = output.comparisonMermaid))
+
+type
+  ToolkitIntegrationSummary* = object
+    dependencyNodes*: int
+    dependencyEdges*: int
+    dependencySources*: int
+    dependencySinks*: int
+    dependencyMaxFanIn*: int
+    dependencyMaxFanOut*: int
+    dependencyDensity*: float
+    workNodes*: int
+    workEdges*: int
+    workBatches*: int
+    workMaxBatchWidth*: int
+    workParallelismFactor*: float
+    workSuccessRate*: float
+    logbookEvents*: int
+    logbookMetricDensity*: float
+    logbookTimingCoverage*: float
+    garageArtifacts*: int
+    garageSections*: int
+    surveyRecommendations*: int
+
+proc summarizeToolkitIntegration*(comparison: cap.VariantComparison):
+    ToolkitIntegrationSummary =
+  let dep = comparison.candidate.plan.toDependencyGraph()
+  let work = comparison.candidate.plan.toWorkGraph()
+  let depMetrics = dep.graphMetrics()
+  let workMetrics = comparison.candidate.toWorkRunReport().workRunMetrics()
+  let events = comparison.candidate.toLogbookEvents()
+  let logMetrics = events.eventMetrics()
+  ToolkitIntegrationSummary(
+    dependencyNodes: dep.nodes.len,
+    dependencyEdges: dep.edges.len,
+    dependencySources: int(depMetrics.sourceCount),
+    dependencySinks: int(depMetrics.sinkCount),
+    dependencyMaxFanIn: int(depMetrics.maxFanIn),
+    dependencyMaxFanOut: int(depMetrics.maxFanOut),
+    dependencyDensity: depMetrics.density,
+    workNodes: work.nodes.len,
+    workEdges: work.edges.len,
+    workBatches: int(workMetrics.batchCount),
+    workMaxBatchWidth: int(workMetrics.maxBatchWidth),
+    workParallelismFactor: workMetrics.parallelismFactor,
+    workSuccessRate: workMetrics.successRate,
+    logbookEvents: events.len,
+    logbookMetricDensity: logMetrics.metricDensity,
+    logbookTimingCoverage: logMetrics.timingCoverage,
+    garageArtifacts: 5,
+    garageSections: (if comparison.surveySummary.len > 0: 2 else: 1),
+    surveyRecommendations: comparison.candidate.survey.recommendations.len
+  )

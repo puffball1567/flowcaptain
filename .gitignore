@@ -1,0 +1,7 @@
+nimcache/
+*.exe
+*.out
+.DS_Store
+/tmp/
+/reports/
+/deps/
