@@ -56,7 +56,11 @@ nimble test
 nimble examples
 nimble eventReportExample
 nimble laravelAdapterExample
+nimble leak
 ```
+
+`nimble leak` builds the ARC release leak probe and runs it under Valgrind,
+failing on definite or indirect leaks.
 
 ## Toolkit Execution
 
