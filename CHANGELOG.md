@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.1
+
+### Changed
+
+- Switched the repository default memory manager to Nim ARC.
+- Added ARC memory-model coverage for core plan/report lifecycles.
+- Added `nimble leak`, a Valgrind-backed release probe that fails on definite
+  or indirect leaks.
+
+## 0.1.0
 
 Initial FlowCaptain release candidate.
 

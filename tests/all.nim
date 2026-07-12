@@ -11,3 +11,4 @@ include test_rotation
 include test_adapterevents
 include test_plandiff
 include test_health
+include test_memory_model

@@ -1,4 +1,4 @@
-version       = "0.1.0"
+version       = "0.1.1"
 author        = "flowcaptain contributors"
 description   = "Top-level orchestration and reporting layer for FlowBrigade Toolkit flows."
 license       = "Apache-2.0"
@@ -28,6 +28,10 @@ let flowToolkitPath = "-p:deps/flowdependency/src -p:deps/flowworkrunner/src " &
 
 task test, "Run the test suite":
   exec "nim r --nimcache:/tmp/flowcaptain-test-nimcache -p:src " & flowToolkitPath & " tests/all.nim"
+
+task leak, "Run the ARC leak probe under Valgrind":
+  exec "nim c -d:release --nimcache:/tmp/flowcaptain-leak-nimcache -p:src " & flowToolkitPath & " --out:/tmp/flowcaptain-leak-probe tests/leak_probe.nim"
+  exec "valgrind --leak-check=full --show-leak-kinds=definite,indirect --errors-for-leak-kinds=definite,indirect --error-exitcode=99 /tmp/flowcaptain-leak-probe"
 
 task examples, "Run examples and generate inspectable reports":
   exec "nim r --nimcache:/tmp/flowcaptain-nimcache -p:src " & flowToolkitPath & " examples/daily_report.nim"
