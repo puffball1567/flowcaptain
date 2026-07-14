@@ -1,4 +1,4 @@
-version       = "0.1.1"
+version       = "0.2.0"
 author        = "flowcaptain contributors"
 description   = "Top-level orchestration and reporting layer for FlowBrigade Toolkit flows."
 license       = "Apache-2.0"

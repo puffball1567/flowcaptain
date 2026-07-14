@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+
+- Added a public integration API layer that lets adapters, CLIs, and future
+  bindings call FlowCaptain as the bridge to plan validation, dependency
+  batches, toolkit execution, adapter-event import, health, metrics, reports,
+  report rotation, diagrams, plan diff, and variant comparison.
+- Added a FlowBrigade policy bridge for validating control plans and exposing
+  consuming or inspecting policy decisions without reimplementing policy logic.
+- Added adapter contract validation for framework adapters, including event
+  type, required id, terminal status, non-negative value, and sensitive tag-key
+  checks.
+- Added run history snapshots and JSONL import/export so callers can store
+  daily or monthly FlowCaptain results outside the library.
+- Added local JSONL file and SQLite history stores for practical recurring-run
+  retention without requiring an external service.
+- Added history trend analysis for critical path, total work, wait, retry,
+  failure, health, throughput, cycle-time, and yield signals.
+- Added `docs/VERIFICATION.md` with the latest test and Valgrind ARC leak-probe
+  result.
+
 ## 0.1.1
 
 ### Changed

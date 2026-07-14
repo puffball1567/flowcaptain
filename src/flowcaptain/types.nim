@@ -216,6 +216,57 @@ type
     message*: string
     tags*: OrderedTable[string, string]
 
+  AdapterContractIssue* = object
+    eventIndex*: int
+    eventType*: string
+    field*: string
+    message*: string
+
+  AdapterContractReport* = object
+    ok*: bool
+    eventCount*: int
+    issueCount*: int
+    issues*: seq[AdapterContractIssue]
+
+  CaptainHistorySnapshot* = object
+    schemaVersion*: Natural
+    flowId*: string
+    runId*: string
+    variantId*: string
+    recordedAtMs*: int
+    ok*: bool
+    totalMs*: int
+    criticalPathMs*: int
+    totalWorkMs*: int
+    totalWaitMs*: int
+    retryCount*: int
+    failedNodeCount*: int
+    healthScore*: float
+    healthGrade*: string
+    averageCycleTimeMs*: float
+    throughputPerHour*: float
+    failureRate*: float
+    defectRate*: float
+    retryRate*: float
+    firstPassYield*: float
+
+  CaptainHistoryTrend* = object
+    ok*: bool
+    snapshotCount*: int
+    previousRunId*: string
+    latestRunId*: string
+    totalMsDelta*: int
+    criticalPathMsDelta*: int
+    totalWorkMsDelta*: int
+    totalWaitMsDelta*: int
+    retryCountDelta*: int
+    failedNodeCountDelta*: int
+    healthScoreDelta*: float
+    degraded*: bool
+    improved*: bool
+    summary*: string
+    recommendations*: seq[string]
+
 proc metadata*(pairs: openArray[(string, string)]): OrderedTable[string, string] =
   result = initOrderedTable[string, string]()
   for pair in pairs:

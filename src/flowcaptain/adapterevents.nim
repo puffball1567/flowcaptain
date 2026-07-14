@@ -10,6 +10,41 @@ const
   AdapterEventSchemaVersion* = 1
   MaxAdapterEventLineBytes* = 1024 * 1024
   MaxAdapterEvents* = 100_000
+  AdapterEventTypes* = [
+    "runStarted",
+    "nodeStarted",
+    "nodeFinished",
+    "nodeFailed",
+    "nodeSkipped",
+    "edgeWaitObserved",
+    "runFinished"
+  ]
+
+proc normalizedEventType(value: string): string =
+  value.normalize()
+
+proc isKnownAdapterEventType(value: string): bool =
+  let normalized = value.normalizedEventType()
+  for item in AdapterEventTypes:
+    if normalized == item.normalizedEventType():
+      return true
+
+proc hasSensitiveName(value: string): bool =
+  let normalized = value.normalizedEventType()
+  for marker in ["payload", "body", "request", "response", "password",
+      "passwd", "secret", "token", "authorization", "auth", "cookie",
+      "session", "credential", "email", "phone", "address"]:
+    if normalized.contains(marker):
+      return true
+
+proc addIssue(report: var AdapterContractReport; index: int;
+    event: CaptainAdapterEvent; field, message: string) =
+  report.issues.add(AdapterContractIssue(
+    eventIndex: index,
+    eventType: event.eventType,
+    field: field,
+    message: message
+  ))
 
 proc statusText(status: NodeStatus): string =
   case status
@@ -139,6 +174,101 @@ proc parseAdapterEventsJsonLines*(content: string): seq[CaptainAdapterEvent] =
     except KeyError as exc:
       raise newException(ValueError, "invalid adapter event at line " &
         $lineNumber & ": " & exc.msg)
+
+proc validateAdapterContract*(events: openArray[CaptainAdapterEvent]):
+    AdapterContractReport =
+  result = AdapterContractReport(ok: true, eventCount: events.len)
+
+  for index, event in events:
+    let eventType = event.eventType.normalizedEventType()
+
+    if event.schemaVersion != AdapterEventSchemaVersion:
+      result.addIssue(index, event, "schemaVersion",
+        "schemaVersion must be " & $AdapterEventSchemaVersion)
+    if event.eventType.len == 0:
+      result.addIssue(index, event, "eventType", "eventType is required")
+    elif not event.eventType.isKnownAdapterEventType():
+      result.addIssue(index, event, "eventType",
+        "unsupported eventType: " & event.eventType)
+    if event.flowId.len == 0:
+      result.addIssue(index, event, "flowId", "flowId is required")
+    if event.runId.len == 0:
+      result.addIssue(index, event, "runId", "runId is required")
+    if event.durationMs < 0:
+      result.addIssue(index, event, "durationMs", "durationMs must be >= 0")
+    if event.retryCount < 0:
+      result.addIssue(index, event, "retryCount", "retryCount must be >= 0")
+
+    case eventType
+    of "nodestarted":
+      if event.nodeId.len == 0:
+        result.addIssue(index, event, "nodeId",
+          "nodeStarted requires nodeId")
+      if event.status notin [nsPending, nsSucceeded]:
+        result.addIssue(index, event, "status",
+          "nodeStarted status must be pending or succeeded")
+    of "nodefinished":
+      if event.nodeId.len == 0:
+        result.addIssue(index, event, "nodeId",
+          "nodeFinished requires nodeId")
+      if event.status == nsPending:
+        result.addIssue(index, event, "status",
+          "nodeFinished status must be terminal")
+    of "nodefailed":
+      if event.nodeId.len == 0:
+        result.addIssue(index, event, "nodeId",
+          "nodeFailed requires nodeId")
+      if event.status != nsFailed:
+        result.addIssue(index, event, "status",
+          "nodeFailed status must be failed")
+    of "nodeskipped":
+      if event.nodeId.len == 0:
+        result.addIssue(index, event, "nodeId",
+          "nodeSkipped requires nodeId")
+      if event.status != nsSkipped:
+        result.addIssue(index, event, "status",
+          "nodeSkipped status must be skipped")
+    of "edgewaitobserved":
+      if event.edgeId.len == 0:
+        result.addIssue(index, event, "edgeId",
+          "edgeWaitObserved requires edgeId")
+    of "runfinished":
+      if event.status == nsPending:
+        result.addIssue(index, event, "status",
+          "runFinished status must be terminal")
+    else:
+      discard
+
+    for key, _ in event.tags:
+      if key.hasSensitiveName():
+        result.addIssue(index, event, "tags." & key,
+          "tag keys must not describe payloads, credentials, or personal data")
+
+  result.issueCount = result.issues.len
+  result.ok = result.issueCount == 0
+
+proc adapterContractReportJson*(report: AdapterContractReport): JsonNode =
+  result = %*{
+    "schemaVersion": 1,
+    "ok": report.ok,
+    "eventCount": report.eventCount,
+    "issueCount": report.issueCount,
+    "issues": []
+  }
+  for issue in report.issues:
+    result["issues"].add(%*{
+      "eventIndex": issue.eventIndex,
+      "eventType": issue.eventType,
+      "field": issue.field,
+      "message": issue.message
+    })
+
+proc validateAdapterContractJson*(events: openArray[CaptainAdapterEvent]):
+    JsonNode =
+  events.validateAdapterContract().adapterContractReportJson()
+
+proc validateAdapterContractJsonl*(content: string): AdapterContractReport =
+  content.parseAdapterEventsJsonLines().validateAdapterContract()
 
 proc eventOrder(a, b: CaptainAdapterEvent): int =
   cmp(a.timestampMs, b.timestampMs)

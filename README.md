@@ -62,6 +62,9 @@ nimble leak
 `nimble leak` builds the ARC release leak probe and runs it under Valgrind,
 failing on definite or indirect leaks.
 
+The latest verification record is kept in
+[docs/VERIFICATION.md](docs/VERIFICATION.md).
+
 ## Toolkit Execution
 
 FlowCaptain can execute a plan through the lower-level toolkit pieces:
@@ -81,6 +84,62 @@ let outcome = plan.executeWithToolkit().complete()
 FlowWorkRunner for execution. For production work, pass a
 `WorkExecutorRegistry` with executors for each node.
 
+## Public Integration API
+
+FlowCaptain is the public bridge for the FlowBrigade Toolkit. External
+adapters and future language bindings do not need to call every lower-level
+toolkit package directly. They can call FlowCaptain's integration API and let
+FlowCaptain delegate to FlowDependency, FlowWorkRunner, FlowLogbook,
+FlowSurveyor, and FlowGarage, while preserving FlowBrigade-compatible retry
+and control signals for reports and future policy bridges.
+
+```nim
+import flowcaptain
+
+let plan = loadPlanJson(readFile("plan.json"))
+let events = importEventsJsonl(readFile("events.jsonl"))
+
+let outcome = analyzeAdapterEvents(plan, events)
+let output = generateReportsFromAdapterEvents(plan, events)
+```
+
+The integration API intentionally keeps responsibilities separate:
+
+- FlowDependency remains responsible for graph structure and dependency-ready
+  batches.
+- FlowWorkRunner remains responsible for execution integration.
+- FlowSurveyor remains responsible for bottleneck, wait, failure, and
+  operational analysis.
+- FlowGarage remains responsible for report bundle conversion.
+- FlowBrigade remains the policy/runtime-control layer; FlowCaptain currently
+  carries compatible retry and control evidence through outcomes and reports.
+- FlowCaptain coordinates these pieces and exposes stable entry points for
+  adapters, CLIs, and future C ABI bindings.
+
+Useful entry points include:
+
+- `loadPlanJson` / `savePlanJson`
+- `normalizePlan` / `validatePlan` / `validatePlanJson`
+- `dryRunPlan` / `dependencyBatches`
+- `executePlan` / `simulatePlan`
+- `importEventsJsonl` / `exportEventsJsonl`
+- `validateAdapterContract` / `validateAdapterContractJsonl`
+- `analyzeAdapterEvents` / `generateReportsFromAdapterEvents`
+- `generateReports` / `writeReports`
+- `diffPlanJson` / `comparePlanVariants`
+- `historySnapshot` / `historySnapshotsJsonLines` / `historyTrend`
+- `appendHistorySnapshotFile` / `loadHistorySnapshotsFile` for local JSONL history
+- `appendHistorySnapshotSqlite` / `loadHistorySnapshotsSqlite` for SQLite history
+- `flowHealth` / `flowHealthJson`
+- `metricEventsFor` / `metricEventsJsonLinesFor`
+- `flowDiagram` / `structureDiagram` / `comparisonDiagram`
+- `validateControlBridge` / `allowControlPolicy` / `inspectControlPolicy` for FlowBrigade policy bridges
+
+This means framework adapters should not stop at writing JSONL. A complete
+adapter can collect safe events, build or load a plan, call FlowCaptain through
+the public API or CLI, and produce the same reports, metrics, health score,
+variant comparison, and artifacts available to native Nim users.
+
 ## Integration Primitives
 
 FlowCaptain exposes small primitives that are useful across the toolkit:
@@ -96,6 +155,25 @@ These are deliberately independent from any specific web framework or workflow
 engine. They are meant to make FlowCaptain useful for both executed flows and
 externally observed business flows.
 
+## Run History
+
+FlowCaptain can turn each analyzed run into a compact history snapshot. Callers
+can store the JSONL in a database, object storage, or a batch artifact directory
+and compare the latest run with the previous run.
+
+```nim
+let outcome = analyzeAdapterEvents(plan, events)
+let snapshot = historySnapshot(outcome, runId = "billing-2026-07-13")
+let jsonl = historySnapshotsJsonLines(@[snapshot])
+appendHistorySnapshotFile("reports/history.jsonl", snapshot)
+appendHistorySnapshotSqlite("reports/history.sqlite3", snapshot)
+```
+
+`historyTrend` compares the latest two snapshots and reports critical-path,
+work, wait, retry, failure, health, cycle-time, throughput, and yield changes.
+This is the core PDCA loop: record a run, change the flow, record the next run,
+then check whether the whole flow improved or merely moved the bottleneck.
+
 ## Adapter Events
 
 Framework adapters can start with lightweight JSON Lines events instead of
@@ -106,8 +184,9 @@ batch, job, queue, and scheduled-task instrumentation.
 {"schemaVersion":1,"eventType":"nodeFinished","flowId":"billing","runId":"run-1","variantId":"A","nodeId":"calculate","durationMs":850,"status":"succeeded","retryCount":1}
 ```
 
-FlowCaptain can parse these events with `parseAdapterEventsJsonLines` and turn
-them into an analyzable outcome with `outcomeFromAdapterEvents`.
+FlowCaptain can parse these events with `parseAdapterEventsJsonLines`, validate
+the shared adapter contract with `validateAdapterContract`, and turn them into
+an analyzable outcome with `outcomeFromAdapterEvents`.
 
 The CLI can generate browser-readable reports from a plan JSON and adapter
 event JSONL:
@@ -117,7 +196,7 @@ nimble eventReportExample
 ```
 
 See [docs/ADAPTER_EVENTS.md](docs/ADAPTER_EVENTS.md) for the event format,
-production notes, and adapter order.
+compatibility contract, production notes, and adapter order.
 
 Planned framework adapter order:
 
