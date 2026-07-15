@@ -14,7 +14,7 @@ suite "adapter events":
     check parsed.id == "billing"
     check parsed.variant == "A"
     check parsed.nodes.len == 2
-    check parsed.nodes[1].plannedMs == 850
+    check parsed.nodes[1].expectedMs == 850
     check parsed.edges.len == 1
     check parsed.edges[0].waitOn
 

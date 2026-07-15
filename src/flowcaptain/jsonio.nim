@@ -21,7 +21,7 @@ proc planChangeKindText(kind: PlanChangeKind): string =
   of pckNodeAdded: "nodeAdded"
   of pckNodeRemoved: "nodeRemoved"
   of pckNodeTitleChanged: "nodeTitleChanged"
-  of pckNodePlannedMsChanged: "nodePlannedMsChanged"
+  of pckNodePlannedMsChanged: "nodeExpectedMsChanged"
   of pckEdgeAdded: "edgeAdded"
   of pckEdgeRemoved: "edgeRemoved"
   of pckEdgeEndpointChanged: "edgeEndpointChanged"
@@ -41,6 +41,7 @@ proc toJson*(plan: CaptainPlan): JsonNode =
     result["nodes"].add(%*{
       "id": item.id,
       "title": item.title,
+      "expectedMs": item.plannedMs,
       "plannedMs": item.plannedMs
     })
   for item in plan.edges:
@@ -66,10 +67,15 @@ proc planFromJson*(value: JsonNode): CaptainPlan =
   for item in nodes:
     if item.kind != JObject:
       raise newException(ValueError, "plan node must be an object")
+    let expectedMs =
+      if item.hasKey("expectedMs"):
+        item{"expectedMs"}.getInt(0)
+      else:
+        item{"plannedMs"}.getInt(0)
     result.nodes.add(node(
       item{"id"}.getStr(),
       item{"title"}.getStr(item{"id"}.getStr()),
-      plannedMs = item{"plannedMs"}.getInt(0)
+      expectedMs = expectedMs
     ))
   let edges = value{"edges"}
   if edges != nil:

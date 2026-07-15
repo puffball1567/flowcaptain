@@ -93,4 +93,4 @@ suite "runner":
 
     check not outcome.dryRun.ok
     check not outcome.run.ok
-    check outcome.run.errors == @["node plannedMs must be >= 0: extract"]
+    check outcome.run.errors == @["node expectedMs must be >= 0: extract"]

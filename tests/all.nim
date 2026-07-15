@@ -8,6 +8,7 @@ include test_analysis
 include test_report
 include test_metrics
 include test_history
+include test_investigation
 include test_rotation
 include test_adapterevents
 include test_plandiff

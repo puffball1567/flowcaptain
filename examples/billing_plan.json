@@ -4,10 +4,10 @@
   "title": "Billing Batch",
   "variant": "A",
   "nodes": [
-    {"id": "load-users", "title": "Load Users", "plannedMs": 120},
-    {"id": "calculate", "title": "Calculate Invoices", "plannedMs": 850},
-    {"id": "render", "title": "Render Invoices", "plannedMs": 410},
-    {"id": "send-mail", "title": "Send Mail", "plannedMs": 90}
+    {"id": "load-users", "title": "Load Users", "expectedMs": 120, "plannedMs": 120},
+    {"id": "calculate", "title": "Calculate Invoices", "expectedMs": 850, "plannedMs": 850},
+    {"id": "render", "title": "Render Invoices", "expectedMs": 410, "plannedMs": 410},
+    {"id": "send-mail", "title": "Send Mail", "expectedMs": 90, "plannedMs": 90}
   ],
   "edges": [
     {"id": "load-calculate", "fromNode": "load-users", "toNode": "calculate", "kind": "required", "waitOn": true},

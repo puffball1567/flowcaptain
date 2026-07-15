@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- Added flow investigation guidance for node candidates, next investigation steps,
+  and methodology documents for hearing, graph design, measurement, reporting,
+  feedback, and refinement.
+- Added `expectedMs` as the preferred node duration name while keeping `plannedMs` as a compatibility alias.
+
 ## 0.2.0
 
 ### Added

@@ -8,6 +8,7 @@ import ./compare
 import ./health
 import ./history
 import ./historystore
+import ./investigation
 import ./ids
 import ./jsonio
 import ./mermaid
@@ -522,6 +523,12 @@ proc reportArtifacts*(comparison: VariantComparison): CaptainArtifacts =
 
 proc reportArtifactsJson*(comparison: VariantComparison): JsonNode =
   comparison.reportArtifacts().toJson()
+
+proc investigate*(outcome: CaptainOutcome): InvestigationReport =
+  investigationReport(outcome)
+
+proc investigationJson*(outcome: CaptainOutcome): JsonNode =
+  outcome.investigationReport().toJson()
 
 proc generateReports*(comparison: VariantComparison): CaptainArtifacts =
   comparison.reportArtifacts()

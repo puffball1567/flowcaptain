@@ -73,8 +73,8 @@ FlowCaptain can execute a plan through the lower-level toolkit pieces:
 import flowcaptain
 
 var plan = initCaptainPlan("daily", "Daily")
-plan.nodes.add(node("extract", "Extract", plannedMs = 10))
-plan.nodes.add(node("publish", "Publish", plannedMs = 20))
+plan.nodes.add(node("extract", "Extract", expectedMs = 10))
+plan.nodes.add(node("publish", "Publish", expectedMs = 20))
 plan.edges.add(edge("extract-publish", "extract", "publish"))
 
 let outcome = plan.executeWithToolkit().complete()
@@ -154,6 +154,19 @@ FlowCaptain exposes small primitives that are useful across the toolkit:
 These are deliberately independent from any specific web framework or workflow
 engine. They are meant to make FlowCaptain useful for both executed flows and
 externally observed business flows.
+
+
+## Flow Investigation Method
+
+FlowCaptain is also a flow investigation tool. It can start from hearing notes,
+existing jobs, methods, database tables, logs, and adapter events, then help an
+analyst decide which nodes to connect, measure, split, or refine.
+
+See:
+
+- [docs/METHODOLOGY.md](docs/METHODOLOGY.md)
+- [docs/NODE_DESIGN_GUIDE.md](docs/NODE_DESIGN_GUIDE.md)
+- [docs/INVESTIGATION_WORKFLOW.md](docs/INVESTIGATION_WORKFLOW.md)
 
 ## Run History
 

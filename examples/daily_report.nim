@@ -4,18 +4,18 @@ import flowcaptain
 
 proc baselinePlan(): CaptainPlan =
   result = initCaptainPlan("daily-report", "Daily Report", variant = "A")
-  result.nodes.add(node("extract", "Extract", plannedMs = 120))
-  result.nodes.add(node("transform", "Transform", plannedMs = 850))
-  result.nodes.add(node("publish", "Publish", plannedMs = 90))
+  result.nodes.add(node("extract", "Extract", expectedMs = 120))
+  result.nodes.add(node("transform", "Transform", expectedMs = 850))
+  result.nodes.add(node("publish", "Publish", expectedMs = 90))
   result.edges.add(edge("extract-transform", "extract", "transform"))
   result.edges.add(edge("transform-publish", "transform", "publish"))
 
 proc candidatePlan(): CaptainPlan =
   result = initCaptainPlan("daily-report", "Daily Report", variant = "B")
-  result.nodes.add(node("extract", "Extract", plannedMs = 120))
-  result.nodes.add(node("transform-a", "Transform A", plannedMs = 430))
-  result.nodes.add(node("transform-b", "Transform B", plannedMs = 410))
-  result.nodes.add(node("publish", "Publish", plannedMs = 95))
+  result.nodes.add(node("extract", "Extract", expectedMs = 120))
+  result.nodes.add(node("transform-a", "Transform A", expectedMs = 430))
+  result.nodes.add(node("transform-b", "Transform B", expectedMs = 410))
+  result.nodes.add(node("publish", "Publish", expectedMs = 95))
   result.edges.add(edge("extract-transform-a", "extract", "transform-a"))
   result.edges.add(edge("extract-transform-b", "extract", "transform-b"))
   result.edges.add(edge("transform-a-publish", "transform-a", "publish"))

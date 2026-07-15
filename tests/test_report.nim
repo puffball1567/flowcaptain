@@ -70,6 +70,7 @@ suite "report":
     check output.reportMarkdown.contains("First-pass yield")
     check output.reportMarkdown.contains("Defect rate")
     check output.reportMarkdown.contains("Total observed work")
+    check output.reportMarkdown.contains("Expected")
     check output.reportMarkdown.contains("target variant")
     check output.reportMarkdown.contains("transform-b")
     check output.flowMermaid.contains("flowchart LR")
