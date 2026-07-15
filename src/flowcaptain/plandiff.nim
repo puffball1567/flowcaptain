@@ -51,7 +51,7 @@ proc diffPlans*(baseline, candidate: CaptainPlan): PlanDiff =
           item.title, "node title changed: " & id))
       if before.plannedMs != item.plannedMs:
         result.addChange(change(pckNodePlannedMsChanged, id, $before.plannedMs,
-          $item.plannedMs, "node planned duration changed: " & id))
+          $item.plannedMs, "node expected duration changed: " & id))
 
   let baselineEdges = baseline.edgeMap()
   let candidateEdges = candidate.edgeMap()

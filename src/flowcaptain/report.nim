@@ -5,6 +5,7 @@ import ./mermaid
 import ./jsonio
 import ./toolkit
 import ./health
+import ./investigation
 
 proc statusText(status: NodeStatus): string =
   case status
@@ -390,6 +391,29 @@ proc addDataQuality(result: var string; comparison: VariantComparison;
     (if selected.survey.recommendations.len > 0: "present" else: "empty") &
     "` | Surveyor recommendations provide secondary evidence. |\n\n")
 
+
+proc addInvestigationGuidance(result: var string; selected: CaptainOutcome) =
+  let investigation = selected.investigationReport()
+  result.add("## Investigation guidance\n\n")
+  result.add(investigation.summary & "\n\n")
+  result.add("| Node | Kind | Owner | Department | Source | Granularity | Confidence | Observed | Reason |\n")
+  result.add("| --- | --- | --- | --- | --- | --- | ---: | --- | --- |\n")
+  for item in investigation.candidates:
+    result.add("| `" & item.nodeId & "` | " & item.kind.cell() & " | " &
+      item.owner.cell() & " | " & item.department.cell() & " | " &
+      item.source.cell() & " | " & item.granularity.cell() & " | " &
+      item.confidence.formatFloat(ffDecimal, 2) & " | " &
+      item.observed.boolText() & " | " & item.reason.cell() & " |\n")
+  result.add("\n")
+  result.add("### Next investigation steps\n\n")
+  result.add("| Priority | Target | Type | Reason | Next step |\n")
+  result.add("| ---: | --- | --- | --- | --- |\n")
+  for item in investigation.suggestions:
+    result.add("| " & $item.priority & " | `" & item.targetId & "` | " &
+      item.kind.cell() & " | " & item.reason.cell() & " | " &
+      item.nextStep.cell() & " |\n")
+  result.add("\n")
+
 proc addRolloutChecklist(result: var string; selected: CaptainOutcome) =
   result.add("## Rollout checklist\n\n")
   result.add("| Gate | Current signal | Required before rollout |\n")
@@ -414,15 +438,15 @@ proc addNodeMetrics(result: var string; selected: CaptainOutcome) =
   if selected.run.timeline.len == 0:
     result.add("- No node execution data was available.\n\n")
     return
-  result.add("| Rank | Node | Status | Planned | Actual | Variance | Work share | Critical | Fan-in | Fan-out | Retries |\n")
+  result.add("| Rank | Node | Status | Expected | Actual | Variance | Work share | Critical | Fan-in | Fan-out | Retries |\n")
   result.add("| ---: | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |\n")
   var rank = 1
   for item in selected.sortedTimeline():
-    let planned = nodes.getOrDefault(item.nodeId).plannedMs
+    let expected = nodes.getOrDefault(item.nodeId).plannedMs
     let degree = degrees.getOrDefault(item.nodeId, (0, 0))
     result.add("| " & $rank & " | `" & item.nodeId & "` | " &
-      item.status.statusText() & " | " & planned.ms() & " | " &
-      item.durationMs.ms() & " | " & (item.durationMs - planned).ms() &
+      item.status.statusText() & " | " & expected.ms() & " | " &
+      item.durationMs.ms() & " | " & (item.durationMs - expected).ms() &
       " | " & share(item.durationMs, totalWork) & " | " &
       selected.isCritical(item.nodeId).boolText() & " | " &
       $degree.fanIn & " | " & $degree.fanOut & " | " & $item.retries & " |\n")
@@ -644,6 +668,7 @@ proc markdownReport*(comparison: VariantComparison): string =
   result.addDecisionRecord(comparison, selected)
   result.addVariantScorecard(comparison)
   result.addDataQuality(comparison, selected)
+  result.addInvestigationGuidance(selected)
 
   result.add("## Overview\n\n")
   result.add("- Plan: `" & selected.plan.id & "`\n")
@@ -834,6 +859,15 @@ proc htmlReport*(comparison: VariantComparison): string =
       edge.fromNode.html() & "</code></td><td><code>" & edge.toNode.html() &
       "</code></td><td>" & edge.kind.kindText().html() & "</td><td>" &
       edge.waitOn.boolText() & "</td><td>" & wait.totalWaitMs.ms().html() & "</td></tr>")
+  result.add("</tbody></table></section>\n")
+
+
+  let investigation = selected.investigationReport()
+  result.add("<section><h2>Investigation Guidance</h2><table><thead><tr><th>Priority</th><th>Target</th><th>Type</th><th>Next step</th></tr></thead><tbody>")
+  for item in investigation.suggestions:
+    result.add("<tr><td>" & $item.priority & "</td><td><code>" & item.targetId.html() &
+      "</code></td><td>" & item.kind.html() & "</td><td>" &
+      item.nextStep.html() & "</td></tr>")
   result.add("</tbody></table></section>\n")
 
   result.add("<section><h2>Recommendation</h2><p>" &

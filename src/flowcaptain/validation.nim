@@ -24,7 +24,7 @@ proc validate*(plan: CaptainPlan): ValidationResult =
     if item.title.strip.len == 0:
       errors.add("node title must not be empty: " & item.id)
     if item.plannedMs < 0:
-      errors.add("node plannedMs must be >= 0: " & item.id)
+      errors.add("node expectedMs must be >= 0: " & item.id)
     if item.retries < 0:
       errors.add("node retries must be >= 0: " & item.id)
 

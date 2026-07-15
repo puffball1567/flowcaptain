@@ -40,6 +40,39 @@ Core fields:
 | `errorKind` | Coarse non-sensitive error category. |
 | `message` | Short non-sensitive note. |
 
+## Compatibility Contract
+
+Framework adapters should treat the event format as a contract, not just as a
+logging convention. The core parser accepts JSONL, and the contract validator
+checks whether an adapter emits data that FlowCaptain can safely analyze.
+
+Use these rules for official and third-party adapters:
+
+- `schemaVersion` must be `1`
+- `eventType` must be one of the documented event types
+- `flowId` and `runId` are required on every event
+- `nodeStarted`, `nodeFinished`, `nodeFailed`, and `nodeSkipped` require
+  `nodeId`
+- `edgeWaitObserved` requires `edgeId`
+- `nodeFinished`, `nodeFailed`, `nodeSkipped`, and `runFinished` must use a
+  terminal status
+- `durationMs` and `retryCount` must not be negative
+- tag names must not describe payloads, credentials, request/response bodies,
+  cookies, tokens, or personal data
+
+Nim callers can validate adapter output before generating reports:
+
+```nim
+let events = parseAdapterEventsJsonLines(jsonl)
+let report = validateAdapterContract(events)
+if not report.ok:
+  echo report.adapterContractReportJson()
+```
+
+Adapters in other languages should match the same contract. FlowCaptain keeps
+this validator in the core package so each framework adapter can share the same
+compatibility tests instead of inventing its own interpretation.
+
 ## Generate A Report
 
 ```bash

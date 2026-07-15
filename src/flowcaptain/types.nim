@@ -216,6 +216,85 @@ type
     message*: string
     tags*: OrderedTable[string, string]
 
+  AdapterContractIssue* = object
+    eventIndex*: int
+    eventType*: string
+    field*: string
+    message*: string
+
+  AdapterContractReport* = object
+    ok*: bool
+    eventCount*: int
+    issueCount*: int
+    issues*: seq[AdapterContractIssue]
+
+  CaptainHistorySnapshot* = object
+    schemaVersion*: Natural
+    flowId*: string
+    runId*: string
+    variantId*: string
+    recordedAtMs*: int
+    ok*: bool
+    totalMs*: int
+    criticalPathMs*: int
+    totalWorkMs*: int
+    totalWaitMs*: int
+    retryCount*: int
+    failedNodeCount*: int
+    healthScore*: float
+    healthGrade*: string
+    averageCycleTimeMs*: float
+    throughputPerHour*: float
+    failureRate*: float
+    defectRate*: float
+    retryRate*: float
+    firstPassYield*: float
+
+
+  InvestigationNodeCandidate* = object
+    nodeId*: string
+    title*: string
+    kind*: string
+    owner*: string
+    department*: string
+    source*: string
+    granularity*: string
+    confidence*: float
+    observed*: bool
+    reason*: string
+
+  InvestigationSuggestion* = object
+    priority*: int
+    targetId*: string
+    kind*: string
+    reason*: string
+    nextStep*: string
+
+  InvestigationReport* = object
+    flowId*: string
+    runId*: string
+    variantId*: string
+    summary*: string
+    candidates*: seq[InvestigationNodeCandidate]
+    suggestions*: seq[InvestigationSuggestion]
+
+  CaptainHistoryTrend* = object
+    ok*: bool
+    snapshotCount*: int
+    previousRunId*: string
+    latestRunId*: string
+    totalMsDelta*: int
+    criticalPathMsDelta*: int
+    totalWorkMsDelta*: int
+    totalWaitMsDelta*: int
+    retryCountDelta*: int
+    failedNodeCountDelta*: int
+    healthScoreDelta*: float
+    degraded*: bool
+    improved*: bool
+    summary*: string
+    recommendations*: seq[string]
+
 proc metadata*(pairs: openArray[(string, string)]): OrderedTable[string, string] =
   result = initOrderedTable[string, string]()
   for pair in pairs:
@@ -228,10 +307,22 @@ proc node*(id, title: string; plannedMs = 1; fail = false; retries = 0): Captain
   CaptainNode(id: id, title: title, plannedMs: plannedMs, fail: fail,
               retries: retries, metadata: initOrderedTable[string, string]())
 
+proc node*(id, title: string; expectedMs: int; fail = false; retries = 0): CaptainNode =
+  CaptainNode(id: id, title: title, plannedMs: expectedMs, fail: fail,
+              retries: retries, metadata: initOrderedTable[string, string]())
+
 proc node*(id, title: string; plannedMs: int; fail: bool; retries: int;
            metadata: OrderedTable[string, string]): CaptainNode =
   CaptainNode(id: id, title: title, plannedMs: plannedMs, fail: fail,
               retries: retries, metadata: metadata)
+
+proc node*(id, title: string; expectedMs: int; fail: bool; retries: int;
+           metadata: OrderedTable[string, string]): CaptainNode =
+  CaptainNode(id: id, title: title, plannedMs: expectedMs, fail: fail,
+              retries: retries, metadata: metadata)
+
+proc expectedMs*(item: CaptainNode): int =
+  item.plannedMs
 
 proc edge*(id, fromNode, toNode: string; kind = ekRequired;
            waitOn = true): CaptainEdge =

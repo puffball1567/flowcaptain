@@ -87,7 +87,7 @@ proc structureMermaid*(outcome: CaptainOutcome): string =
     result.add("  class " & classId & " {\n")
     result.add("    +id " & item.id.classValue() & "\n")
     result.add("    +title " & item.title.classValue() & "\n")
-    result.add("    +plannedMs " & $item.plannedMs & "\n")
+    result.add("    +expectedMs " & $item.plannedMs & "\n")
     result.add("    +status " & $run.status & "\n")
     result.add("    +durationMs " & $run.durationMs & "\n")
     result.add("    +retries " & $run.retries & "\n")
